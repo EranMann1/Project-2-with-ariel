@@ -4,10 +4,10 @@ Created on Sat Feb 12 09:20:01 2022
 
 @author: user
 """
-
 import numpy as np
 import matplotlib.pyplot as plt
 from methagrading import layer
+from sklearn.linear_model import LinearRegression
 plt.rc('font', size=10)          # controls default text sizes
 plt.rc('axes', titlesize=15)     # fontsize of the axes title
 plt.rc('axes', labelsize=15)    # fontsize of the x and y labels
@@ -16,16 +16,7 @@ plt.rc('ytick', labelsize=10)    # fontsize of the tick labels
 plt.rc('legend', fontsize=10)    # legend fontsize
 plt.rc('figure', titlesize=14)  # fontsize of the figure title
 
-def my_lin_reg(x, y):
-    n = len(x)
-    sum_x = np.sum(x)
-    sum_y = np.sum(y)
-    sum_xy = np.sum(x * y)
-    sum_xx = np.sum(x * x)
-    denom = n * sum_xx -sum_x ** 2
-    a = np.divide(sum_y * sum_xx - sum_x * sum_xy, denom)
-    b = np.divide(n * sum_xy - sum_x * sum_y, denom)
-    return a, b
+
 
 
 class single_layer(layer):
@@ -121,14 +112,19 @@ class single_layer(layer):
         Lambda_vec = self.Lambda
         A_vec = np.zeros(np.shape(Lambda_vec))
         B_vec = np.zeros(np.shape(Lambda_vec))
+        score_vec = np.zeros(np.shape(Lambda_vec))
         X_matrix = np.log(self.norm_k_z_matrix)
         y_matrix = np.log(- self.imaginary_value)
         for Lambda_index in range(len(Lambda_vec)):
-            reg = my_lin_reg(X_matrix[Lambda_index, :], y_matrix[Lambda_index, :])
-            A_vec[Lambda_index] = np.exp(reg[0])
-            B_vec[Lambda_index] = reg[1]
+            X = X_matrix[Lambda_index, :].reshape(-1,1)
+            y = y_matrix[Lambda_index, :]
+            reg = LinearRegression().fit(X, y)
+            A_vec[Lambda_index] = np.exp(reg.coef_)
+            B_vec[Lambda_index] = reg.intercept_
+            score_vec[Lambda_index] = reg.score(X, y)
         self.A_coefs = A_vec
         self.B_coefs = B_vec
+        self.scores = score_vec
 
 
         
@@ -157,13 +153,35 @@ def main():
     Regretor.calculate_phase_matrix()
     Regretor.calculate_imaginary_valur()
     Regretor.linear_regration()
-    fig, axs = plt.subplots(2)
-    fig.suptitle('regretion')
+    fig, axs = plt.subplots(3)
+    fig.suptitle('coefitionts')
     axs[0].plot(Regretor.Lambda, Regretor.A_coefs)
-    axs[0].set_title(r'$A(\tilde{\Lambda}$')
+    axs[0].set_ylabel(r'$A(\tilde{\Lambda})$')
+    axs[0].set_xlabel(r'$\tilde{\Lambda}$')
     axs[1].plot(Regretor.Lambda, Regretor.B_coefs)
-    axs[1].set_title(r'$B(\tilde{\Lambda}$')
+    axs[1].set_ylabel(r'$B(\tilde{\Lambda})$')
+    axs[1].set_xlabel(r'$\tilde{\Lambda}$')
+    axs[2].plot(Regretor.Lambda, Regretor.scores)
+    axs[2].set_ylabel(r'$R^2$')
+    axs[2].set_xlabel(r'$\tilde{\Lambda}$')
+    plt.tight_layout()
     
+    plt.figure()
+    fig, axs = plt.subplots(2)
+    axs[0].plot(Regretor.Lambda, Regretor.A_coefs, label = 'real')
+    axs[0].plot(Regretor.Lambda, 0.327 * np.ones(np.shape(Regretor.Lambda)), label = 'zero order approximation')
+    axs[0].plot(Regretor.Lambda, 0.3045097 - 0.01790584 * Regretor.Lambda + 0.26870063 * Regretor.Lambda ** 2, label = 'second order approximation')
+    axs[0].set_ylabel(r'$A(\tilde{\Lambda})$')
+    axs[0].set_xlabel(r'$\tilde{\Lambda}$')
+    axs[0].legend()
+    
+    axs[1].plot(Regretor.Lambda, Regretor.B_coefs, label = 'numeric')
+    axs[1].set_ylabel(r'$B(\tilde{\Lambda})$')
+    axs[1].set_xlabel(r'$\tilde{\Lambda}$')
+    axs[1].plot(Regretor.Lambda, - 1.15 * np.log( Regretor.Lambda) - 0.95, label = 'approximation')
+    axs[1].legend()
+    
+
 
 
 if __name__ == '__main__':
