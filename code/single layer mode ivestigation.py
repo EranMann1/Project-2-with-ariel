@@ -22,13 +22,7 @@ class single_layer(layer):
         self.Lambda = np.array(kwargs['Lambda_vector'])
         self.order = kwargs['summation_order']
         self.phase_number = kwargs['phase_number']
-        
-    # def __init__(self, wave_length, eta, Lambda_vector, phase_number, summation_order):
-    #     layer.__init__(self, wave_length, eta, 0, 0, 0, 0)
-    #     self.Lambda = Lambda_vector
-    #     self.order = summation_order
-    #     self.phase_number = phase_number
-    
+            
     
     def calculate_phase_matrix(self):
         Lambdas = self.Lambda
@@ -93,7 +87,6 @@ def main():
     calculator = single_layer(normalized = True, Lambda_vector = Lambda_vector\
                               , phase_number = phase_number, \
                               summation_order = summation_order)
-    #calculator = single_layer(1, 1, Lambda_vector, phase_number, summation_order)
     calculator.calculate_phase_matrix()
     calculator.calculate_imaginary_valur()
     calculator.plot()

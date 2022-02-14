@@ -9,7 +9,24 @@ import numpy as np
 
 
 class layer:
+    """
+    tamplate to methagradings object with some layers, wavelentgh, and vacume parameters
+    """
     def __init__(self, **kwargs):
+        """
+    
+        Parameters
+        ----------
+        c \ speed : speed of light. defult 3e8
+        freq\wave_lentgh\k : control wavelentgh in some way defult freq 10G
+        Lambda\theta_in + (optional) theta_out, Lambda_order: control the period of the layers. defult is wave_lentgth
+        r_eff : the effective radius of cabel. defult Lambda/100
+        eta: impedance of vacume. defult:377
+        
+        normalized = True : makes eta, wavelength, c eqauls to 1
+
+
+        """
         done = False
         # wave and vacume properties are 1
         if 'normalized' in kwargs.keys():
@@ -88,22 +105,13 @@ class layer:
                 Lambda = np.abs(np.divide(1,np.sin(kwargs['theta_in'])))
                 self.Lambda = np.divide(Lambda, self.k)
         else:
-            self.Lambda = 2 * np.pi * self.wave_length
-            
-            
-            
-                
+            self.Lambda = self.wave_length
         
+        if 'r_eff' in kwargs.keys():
+            self.r_eff = kwargs['r_eff']
+        else:
+            self.r_eff = np.divide(self.Lambda, 100)
             
-    # def __init__(self, wave_length, eta, r_eff, Hs, Ds, Zs, Lambda = 0):
-        # self.wave_length = wave_length
-        # self.eta = eta 
-        # self.Lambda = Lambda 
-        # self.r_eff = r_eff
-        # self.Hs = np.array(Hs) + 0j
-        # self.Ds = np.array(Ds) + 0j
-        # self.Zs = np.array(Zs) + 0j
-        # self.k = 2*np.pi/wave_length
      
         
     def calculate_alphas_betas_ns(self, phase, zeros = True, order = 100):
