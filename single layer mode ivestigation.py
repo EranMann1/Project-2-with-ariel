@@ -17,11 +17,17 @@ plt.rc('legend', fontsize=10)    # legend fontsize
 plt.rc('figure', titlesize=14)  # fontsize of the figure title
 
 class single_layer(layer):
-    def __init__(self, wave_length, eta, Lambda_vector, phase_number, summation_order):
-        layer.__init__(self, wave_length, eta, 0, 0, 0, 0)
-        self.Lambda = Lambda_vector
-        self.order = summation_order
-        self.phase_number = phase_number
+    def __init__(self, **kwargs):
+        layer.__init__(self, **kwargs)
+        self.Lambda = np.array(kwargs['Lambda_vector'])
+        self.order = kwargs['summation_order']
+        self.phase_number = kwargs['phase_number']
+        
+    # def __init__(self, wave_length, eta, Lambda_vector, phase_number, summation_order):
+    #     layer.__init__(self, wave_length, eta, 0, 0, 0, 0)
+    #     self.Lambda = Lambda_vector
+    #     self.order = summation_order
+    #     self.phase_number = phase_number
     
     
     def calculate_phase_matrix(self):
@@ -84,7 +90,10 @@ def main():
     Lambda_vector = np.linspace(0.01, 0.49, 7)
     phase_number = 10000
     summation_order = 100000
-    calculator = single_layer(1, 1, Lambda_vector, phase_number, summation_order)
+    calculator = single_layer(normalized = True, Lambda_vector = Lambda_vector\
+                              , phase_number = phase_number, \
+                              summation_order = summation_order)
+    #calculator = single_layer(1, 1, Lambda_vector, phase_number, summation_order)
     calculator.calculate_phase_matrix()
     calculator.calculate_imaginary_valur()
     calculator.plot()
