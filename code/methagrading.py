@@ -153,13 +153,16 @@ class layer:
     
     
 class source:
+    """
+    a finite amaunt of wires whic reate a sourcs of electric field
+    """
     def __init__(self, y_vec, z_vec, I_vec):
         self.y_vec = y_vec
         self.z_vec = z_vec
         self.I_vec = I_vec
     
     
-    def calc_field(self, y, z, grid = True):
+    def calc_field(self, y_vec, z_vec):
         #either y_vec,z_vec or y_grid, z_frid
         pass
     
@@ -168,6 +171,9 @@ class source:
     
     
 class space:
+    """
+    allows to calculate fields methagrading and source in a given gris and plot it nicely
+    """
     def __init__(self, layer, y_vec, z_vec, source):
         self.layer = layer
         self.y_vec = np.array(y_vec)
@@ -273,13 +279,93 @@ class space:
             plt.ylabel(kwargs['ylabel'])
         
         
-    
-    
-    
-    
+class single_layer:
+     """
+     contains functions that help calculate results for single layer
+     """
+     
+     @staticmethod 
+     def calc_wanted_impedance(approximation = True, **kwargs):
+         """
         
+         Parameters
+         ----------
+         wavelength : if not given tha deffult is 1
+         eta: if not given tha defult is 1
+         Lambda: if not given the defule qurter wavelentgh
+         phase: wanted phse shift. (optional)
+         norm_k_y:wanted normalized k_y. defult 2. must be biger than 1
+         k_y: wanted k_y (optional)
+         k_z: wanted k_z (optional)
+         norm_k_z: wanted norilzedm k_z (optional)
+         r_eff: if not given than the returned value will be the imaginary value and not the impedance
+         Approximation: if True (defult) than will return the approximated value
+         summation_order: if Approximation is false this needs to be given. defult:100
+         
 
-    
-            
+         Returns
+         -------
+         None.
+
+         """
+         wave_length = kwargs.get('wavelength', default = 1)
+         k = np.divide(2 * np.pi, wave_length)
+         eta = kwargs.get('eta', default = 1)
+         Lambda = kwargs.get('Lambda', default = 0.25 * wave_length)
+         summation_order = kwargs.get('summation_order', 100)
+         if 'norm_k_y' in kwargs.keys():
+             norm_k_y = kwargs.get('norm_k_y')
+             phase = k * norm_k_y * Lambda
+             norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
+         elif 'k_y' in kwargs.keys():
+             norm_k_y = kwargs.get('k_y') * np.divide(1,  k)
+             phase = k * norm_k_y * Lambda
+             norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
+         elif 'phase' in kwargs.keys():
+             norm_k_y = np.divide(1, k) * kwargs.get('phase')
+             norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
+         elif 'k_z' in kwargs.keys():
+             norm_k_z = kwargs.get('k_z') * np.divide(1, k)
+             norm_k_y = np.sqrt(norm_k_z ** 2 + 1)
+             phase = np.divide(2 * np.pi, wave_length) * norm_k_y * Lambda
+         elif 'norm_k_z' in kwargs.keys():
+             norm_k_z = kwargs.get('norm_k_z') 
+             norm_k_y = np.sqrt(norm_k_z ** 2 + 1)
+             phase = k * norm_k_y * Lambda
+         else:
+             norm_k_y = 2
+             phase = k * norm_k_y * Lambda
+             norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
+         
+         if approximation:
+             f =  single_layer.Approx_func(np.divide(Lambda, wave_length), norm_k_z)
+         else:
+             f = single_layer.non_approx_func(Lambda, phase, k, summation_order) 
         
+         if 'r_eff' in kwargs.keys():
+             r_eff = kwargs.get('r_eff') 
+             imag_z = np.divide(k * eta, 2 * np.pi) * np.log(np.divide(2 * np.pi * r_eff, Lambda)) - eta * f
+             return 1j * imag_z
+         else:
+             return - 1j * eta * f
+     
     
+     @staticmethod
+     def Approx_func(norm_k_z_vec, norm_Lambda_vec):
+         norm_kz = np.array(norm_k_z_vec).reshape(len(norm_k_z_vec), 1)
+         norm_Lambda = np.array(norm_Lambda_vec).reshape(1, len(norm_Lambda_vec))
+         a_vec = 0.3045097 - 0.01790584 * norm_Lambda + 0.26870063 * norm_Lambda ** 2
+         b_vec = - 1.15 * np.log(norm_Lambda) - 0.95
+         return a_vec * np.power(norm_kz, b_vec)
+    
+     @staticmethod
+     def non_approx_func(Lambda, phase,k , summation_order):
+        nums = np.concatenate([np.linspace(-summation_order, 0, endpoint = False),\
+                                     np.linspace(1, summation_order)])
+        
+        sum_element_0 = np.divide(1, np.sqrt(phase ** 2 - (Lambda * k)**2))
+        sum_elements = - np.divide(1, 2 * np.pi * np.abs(nums)) - \
+                np.divide(1, np.sqrt((phase + 2 * np.pi * nums) ** 2 - \
+                                     (Lambda * k) ** 2))
+        imaginary_value = np.divide(k , 2) * (sum_element_0 + np.sum(sum_elements))
+        return imaginary_value

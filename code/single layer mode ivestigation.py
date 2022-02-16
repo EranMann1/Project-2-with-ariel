@@ -43,7 +43,7 @@ class single_layer(layer):
         self.norm_k_z_matrix = np.sqrt(norm_k_y_matrix ** 2 - 1 ** 2)
         
         
-    def calculate_imaginary_valur(self):
+    def calculate_imaginary_value(self):
         Lambda_vector = self.Lambda
         phase_matrix = self.phase_matrix
         imaginary_value = np.zeros(np.shape(phase_matrix))
@@ -151,7 +151,7 @@ def main():
                               , phase_number = phase_number, \
                               summation_order = summation_order)
     Regretor.calculate_phase_matrix()
-    Regretor.calculate_imaginary_valur()
+    Regretor.calculate_imaginary_value()
     Regretor.linear_regration()
     fig, axs = plt.subplots(3)
     fig.suptitle('coefitionts')
