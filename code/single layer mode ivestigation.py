@@ -6,7 +6,7 @@ Created on Sat Feb 12 09:20:01 2022
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from methagrading import layer
+from methagrading import layer, single_layer
 from sklearn.linear_model import LinearRegression
 plt.rc('font', size=10)          # controls default text sizes
 plt.rc('axes', titlesize=15)     # fontsize of the axes title
@@ -19,7 +19,7 @@ plt.rc('figure', titlesize=14)  # fontsize of the figure title
 
 
 
-class single_layer(layer):
+class single_layer_new(layer):
     def __init__(self, **kwargs):
         layer.__init__(self, **kwargs)
         self.Lambda = np.array(kwargs['Lambda_vector'])
@@ -52,14 +52,27 @@ class single_layer(layer):
                                      np.linspace(1, self.order)])
         for Lambda_index in range(len(Lambda_vector)):
             Lambda = Lambda_vector[Lambda_index]
-            phase, nums = np.meshgrid(phase_matrix[Lambda_index, :], num_vector)
-            sum_element_0 = -np.divide(1, np.sqrt(phase[0, :]**2 - (Lambda * k)**2))
+            phase = np.array(phase_matrix[Lambda_index, :]).reshape(-1, 1)
+            nums = np.array(num_vector).reshape(1,-1)
+            sum_element_0 = -np.divide(1, np.sqrt(phase ** 2 - (Lambda * k)**2))
             sum_elements = np.divide(1, 2 * np.pi * np.abs(nums)) - \
                 np.divide(1, np.sqrt((phase + 2 * np.pi * nums)**2 - \
                                      (Lambda * k)**2))
             imaginary_value[Lambda_index, :] = np.divide(k * self.eta, 2) * \
-                (sum_element_0 + np.sum(sum_elements,axis = 0))
+                (sum_element_0[:,0] + np.sum(sum_elements,axis = -1))
         self.imaginary_value = imaginary_value
+        
+        
+    def calculate_imaginary_value_with_alphas_betas(self):
+        Lambda_vector = self.Lambda
+        phase_matrix = self.phase_matrix
+        imaginary_value = np.zeros(np.shape(phase_matrix)) + 0j
+        k = self.k
+        for Lambda_index in range(len(Lambda_vector)):
+            Lambda = np.array(Lambda_vector[Lambda_index])
+            phase = np.array(phase_matrix[Lambda_index, :])
+            imaginary_value[Lambda_index, :] = single_layer.non_approx_func(Lambda, phase, k, self.order)
+        self.imaginary_value = - np.divide(imaginary_value, 1j)
         
         
     def plot(self):
@@ -69,7 +82,7 @@ class single_layer(layer):
         plt.figure()
         for Lambda_index in range(len(Lambda_vector)):
             plt.plot(np.divide(phase_matrix[Lambda_index, :], np.pi), \
-                     - imaginary_value[Lambda_index, :],\
+                     - np.real(imaginary_value[Lambda_index, :]),\
                      label = r'$\Lambda=' + str(np.around(Lambda_vector[Lambda_index],2)) + '\lambda$')
             plt.yscale('log')
         plt.legend(loc = 'upper right')
@@ -82,7 +95,7 @@ class single_layer(layer):
         plt.figure()
         for Lambda_index in range(len(Lambda_vector)):
             plt.plot(self.norm_k_y_matrix[Lambda_index, :], \
-                     - imaginary_value[Lambda_index, :],\
+                     - np.real(imaginary_value[Lambda_index, :]),\
                      label = r'$\Lambda=' + str(np.around(Lambda_vector[Lambda_index],2)) + '\lambda$')
             plt.yscale('log')
             plt.xscale('log')
@@ -96,7 +109,7 @@ class single_layer(layer):
         plt.figure()
         for Lambda_index in range(len(Lambda_vector)):
             plt.plot(self.norm_k_z_matrix[Lambda_index, :], \
-                     - imaginary_value[Lambda_index, :],\
+                     - np.real(imaginary_value[Lambda_index, :]),\
                      label = r'$\Lambda=' + str(np.around(Lambda_vector[Lambda_index],2)) + '\lambda$')
             plt.yscale('log')
             plt.xscale('log')
@@ -132,54 +145,56 @@ class single_layer(layer):
                      
              
 def main():
-    # graphs
-    # Lambda_vector = np.linspace(0.01, 0.49, 7)
-    # phase_number = 10000
-    # summation_order = 100000
-    # calculator = single_layer(normalized = True, Lambda_vector = Lambda_vector\
-    #                           , phase_number = phase_number, \
-    #                           summation_order = summation_order)
-    # calculator.calculate_phase_matrix()
-    # calculator.calculate_imaginary_valur()
-    # calculator.plot()
-
-    # regretion
-    Lambda_vector = np.linspace(0.01, 0.49, 1000)
-    phase_number = 100
-    summation_order = 1000
-    Regretor = single_layer(normalized = True, Lambda_vector = Lambda_vector\
+    #graphs
+    Lambda_vector = np.linspace(0.01, 0.49, 7)
+    phase_number = 20000
+    summation_order = 1000000
+    calculator = single_layer_new(normalized = True, Lambda_vector = Lambda_vector\
                               , phase_number = phase_number, \
                               summation_order = summation_order)
-    Regretor.calculate_phase_matrix()
-    Regretor.calculate_imaginary_value()
-    Regretor.linear_regration()
-    fig, axs = plt.subplots(3)
-    fig.suptitle('coefitionts')
-    axs[0].plot(Regretor.Lambda, Regretor.A_coefs)
-    axs[0].set_ylabel(r'$A(\tilde{\Lambda})$')
-    axs[0].set_xlabel(r'$\tilde{\Lambda}$')
-    axs[1].plot(Regretor.Lambda, Regretor.B_coefs)
-    axs[1].set_ylabel(r'$B(\tilde{\Lambda})$')
-    axs[1].set_xlabel(r'$\tilde{\Lambda}$')
-    axs[2].plot(Regretor.Lambda, Regretor.scores)
-    axs[2].set_ylabel(r'$R^2$')
-    axs[2].set_xlabel(r'$\tilde{\Lambda}$')
-    plt.tight_layout()
+    calculator.calculate_phase_matrix()
+    calculator.calculate_imaginary_value()
+    calculator.plot()
     
-    plt.figure()
-    fig, axs = plt.subplots(2)
-    axs[0].plot(Regretor.Lambda, Regretor.A_coefs, label = 'real')
-    axs[0].plot(Regretor.Lambda, 0.327 * np.ones(np.shape(Regretor.Lambda)), label = 'zero order approximation')
-    axs[0].plot(Regretor.Lambda, 0.3045097 - 0.01790584 * Regretor.Lambda + 0.26870063 * Regretor.Lambda ** 2, label = 'second order approximation')
-    axs[0].set_ylabel(r'$A(\tilde{\Lambda})$')
-    axs[0].set_xlabel(r'$\tilde{\Lambda}$')
-    axs[0].legend()
+    calculator.calculate_imaginary_value_with_alphas_betas()
+    calculator.plot()
+    # regretion
+    # Lambda_vector = np.linspace(0.01, 0.49, 1000)
+    # phase_number = 100
+    # summation_order = 10000
+    # Regretor = single_layer_new(normalized = True, Lambda_vector = Lambda_vector\
+    #                           , phase_number = phase_number, \
+    #                           summation_order = summation_order)
+    # Regretor.calculate_phase_matrix()
+    # Regretor.calculate_imaginary_value()
+    # Regretor.linear_regration()
+    # fig, axs = plt.subplots(3)
+    # fig.suptitle('coefitionts')
+    # axs[0].plot(Regretor.Lambda, Regretor.A_coefs)
+    # axs[0].set_ylabel(r'$A(\tilde{\Lambda})$')
+    # axs[0].set_xlabel(r'$\tilde{\Lambda}$')
+    # axs[1].plot(Regretor.Lambda, Regretor.B_coefs)
+    # axs[1].set_ylabel(r'$B(\tilde{\Lambda})$')
+    # axs[1].set_xlabel(r'$\tilde{\Lambda}$')
+    # axs[2].plot(Regretor.Lambda, Regretor.scores)
+    # axs[2].set_ylabel(r'$R^2$')
+    # axs[2].set_xlabel(r'$\tilde{\Lambda}$')
+    # plt.tight_layout()
     
-    axs[1].plot(Regretor.Lambda, Regretor.B_coefs, label = 'numeric')
-    axs[1].set_ylabel(r'$B(\tilde{\Lambda})$')
-    axs[1].set_xlabel(r'$\tilde{\Lambda}$')
-    axs[1].plot(Regretor.Lambda, - 1.15 * np.log( Regretor.Lambda) - 0.95, label = 'approximation')
-    axs[1].legend()
+    # plt.figure()
+    # fig, axs = plt.subplots(2)
+    # axs[0].plot(Regretor.Lambda, Regretor.A_coefs, label = 'real')
+    # axs[0].plot(Regretor.Lambda, 0.327 * np.ones(np.shape(Regretor.Lambda)), label = 'zero order approximation')
+    # axs[0].plot(Regretor.Lambda, 0.3045097 - 0.01790584 * Regretor.Lambda + 0.26870063 * Regretor.Lambda ** 2, label = 'second order approximation')
+    # axs[0].set_ylabel(r'$A(\tilde{\Lambda})$')
+    # axs[0].set_xlabel(r'$\tilde{\Lambda}$')
+    # axs[0].legend()
+    
+    # axs[1].plot(Regretor.Lambda, Regretor.B_coefs, label = 'numeric')
+    # axs[1].set_ylabel(r'$B(\tilde{\Lambda})$')
+    # axs[1].set_xlabel(r'$\tilde{\Lambda}$')
+    # axs[1].plot(Regretor.Lambda, - 1.15 * np.log( Regretor.Lambda) - 0.95, label = 'approximation')
+    # axs[1].legend()
     
 
 

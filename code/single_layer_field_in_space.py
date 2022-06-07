@@ -20,7 +20,7 @@ def main():
     my_space.calc_phasor_field(phase, summation_order, save = True, currents = [10])
     my_space.plot(total = False, plot_source = False, type = 'reallog', \
                   xlabel = r'$\frac{y}{\lambda}$', ylabel = r'$\frac{z}{\lambda}$'\
-                  , title = r'Electric field $\left[\frac{I_0 \eta}{\lambda}\right]$'    )
+                  , title = r'$\frac{\Lambda}{\lambda}=0.17$, $\frac{k_y}{k}=1.3$'    )
     my_space.plot(total = False, plot_source = False, type = 'powerlog', \
                   xlabel = r'$\frac{y}{\lambda}$', ylabel = r'$\frac{z}{\lambda}$'\
                   , title = r'Energy per volume $\left[\frac{I_0^2 \eta^3}{2 \lambda^2}\right]$')

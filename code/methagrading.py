@@ -121,15 +121,17 @@ class layer:
         else:
             self.r_eff = np.divide(self.Lambda, 100)
             
-     
         
-    def calculate_alphas_betas_ns(self, phase, zeros = True, order = 100):
+    def calculate_alphas_betas_ns(self, phase_vec, zeros = True, order = 100):
         if zeros:
-            nums = np.linspace(-order, order, 2*order + 1) + 0j
+            num_vec = np.linspace(-order, order, 2 * order + 1) + 0j
         else:
-            nums = np.concatenate((np.arange(- order, 0), np.arange(0, order))) + 0j
-        alphas =  (2*np.pi*nums + phase)/self.Lambda
+            num_vec = np.concatenate((np.arange(- order, 0), np.arange(1, order))) + 0j
+        nums = num_vec.reshape(1, 1, 1, -1)
+        phase = np.array(phase_vec).reshape(-1, 1, 1, 1)
+        alphas =  (2 * np.pi * nums + phase)/self.Lambda
         betas = np.conj(np.sqrt((self.k)**2 - alphas**2))
+        # first (0) direction phase, 4th (3) direction num
         return alphas, betas, nums 
       
         
@@ -144,6 +146,57 @@ class layer:
         else:
             return theta
     
+    
+    def calc_A_matricis(self, ky_vec, summation_order):
+        size = len(self.Ds)
+        phase_vec = np.array(self.Lambda * ky_vec).reshape(-1, 1, 1)
+        alphas_no_zero, betas_no_zero, num_no_zero = self.calculate_alphas_betas_ns(phase_vec, False, summation_order)
+        print(np.sum(num_no_zero == 0))
+        alphas, betas, nums = self.calculate_alphas_betas_ns(phase_vec, True, summation_order)
+        if size == 1:
+            Zs_n = np.array(self.Zs).reshape(1, -1, 1)
+            diag_sum = np.sum(np.divide(1j, 2 * np.pi * np.abs(num_no_zero)) \
+                              - np.divide(1 + 0j, self.Lambda * betas_no_zero), axis = -1)
+            diag_ln = np.divide(1j, np.pi) * np.log(np.divide(2 * np.pi *self.r_eff, self.Lambda))
+            diag_rest = np.divide(1j, self.Lambda * betas[:, 0, 0, summation_order]).reshape(-1, 1, 1)
+            diag_vec = np.divide(self.k * self.eta + 0j, 2 * Zs_n) * (diag_ln - diag_rest + diag_sum) - 1
+            A_matricis = diag_vec
+        else: 
+            
+            Ds_n = np.array(self.Ds).reshape(1, -1, 1, 1)
+            Hs_n = np.array(self.Hs).reshape(1, -1, 1, 1)
+            Zs_n = np.array(self.Zs).reshape(1, -1, 1)
+            Ds_m = Ds_n.reshape(1, 1, -1, 1)
+            Hs_m = Hs_n.reshape(1, 1, -1, 1)
+            Zs_m = Zs_n.reshape(1, 1, -1, 1)
+            diag_sum = np.sum(np.divide(1j, 2 * np.pi * np.abs(num_no_zero) + 0j) \
+                              - np.divide(1 + 0j, self.Lambda * betas_no_zero), axis = 3)
+            diag_ln = np.divide(1j, np.pi + 0j) * np.log(np.divide(2 * np.pi *self.r_eff, self.Lambda))
+            diag_rest = np.divide(1 + 0j, self.Lambda * betas[:, 0, 0, summation_order]).reshape(-1, 1, 1)
+            diag_vec = np.divide(self.k * self.eta + 0j, 2 * Zs_n) * (diag_ln - diag_rest + diag_sum) -1
+            A_non_diag = -np.divide(self.k * self.eta * Zs_m, 2 * self.Lambda + 0j) * \
+                np.sum(np.divide(np.exp(- 1j * (alphas * (Ds_n - Ds_m) + betas * np.abs(Hs_n - Hs_m))), betas))
+            A_matricis = np.zeros([np.max(np.shape(ky_vec)), len(Ds_n), len(Ds_n)])
+            diag = np.ones([np.max(np.shape(ky_vec)), 1, 1]) * np.eye(size).reshape(1, size, size)            
+            A_matricis[diag == 1] = diag_vec.reshape(-1) 
+            A_matricis[diag == 0] = A_non_diag[diag == 0]
+        self.ky_vec = ky_vec
+        self.A_matricis = A_matricis
+        
+        
+    def Plot_STR(self):
+        size = len(self.Ds)
+        if size == 1:
+            STR = np.divide(1, np.abs(self.A_matricis))
+        else:
+            dets = np.linalg.det(self.A_matricis)
+            STR = np.divide(1, np.abs(dets))
+        plt.figure()
+        plt.plot(np.divide(self.ky_vec, self.k), STR.reshape(-1))
+        plt.xlabel(r'$\frac{k_y}{k}$')
+        plt.ylabel(r'$STR$')
+        plt.grid('both')
+        
         
     def calculate_Lambda(self, theta_in, theta_out, order = 1, change = False):
         Lambda = np.abs(np.divide(order, np.sin(theta_in)-np.sin(theta_out)))
@@ -185,12 +238,12 @@ class space:
     def calc_phasor_field(self, phase, summation_order,  currents = 0, save = False):
         alphas, betas, nums = self.layer.calculate_alphas_betas_ns(phase, True, summation_order)
         # all vectors here are in directions(y,z,num_of_layers,summation order)
-        y_vec = self.y_vec.reshape(len(self.y_vec), 1, 1, 1)
-        z_vec = self.z_vec.reshape(1, len(self.z_vec), 1, 1)
-        Alphas = alphas.reshape(1, 1, 1, len(nums))
-        Betas = betas.reshape(1, 1, 1, len(nums))
-        Ds = self.layer.Ds.reshape(1, 1, len(self.layer.Ds), 1)
-        Hs = self.layer.Hs.reshape(1, 1, len(self.layer.Ds), 1)
+        y_vec = self.y_vec.reshape(-1, 1, 1, 1)
+        z_vec = self.z_vec.reshape(1, -1, 1, 1)
+        Alphas = alphas.reshape(1, 1, 1, -1)
+        Betas = betas.reshape(1, 1, 1, -1)
+        Ds = self.layer.Ds.reshape(1, 1, -1, 1)
+        Hs = self.layer.Hs.reshape(1, 1, -1, 1)
         if currents == 0:
             Currents = np.ones(np.shape(Ds))
         else:
@@ -206,6 +259,7 @@ class space:
             return np.sum(sum_element, axis = (-1, -2))
     
     
+
     def calc_total_field(self, phasor_vec, summation_order):
         pass
     
@@ -308,64 +362,70 @@ class single_layer:
          None.
 
          """
-         wave_length = kwargs.get('wavelength', default = 1)
+         wave_length = kwargs.get('wavelength', 1)
          k = np.divide(2 * np.pi, wave_length)
-         eta = kwargs.get('eta', default = 1)
-         Lambda = kwargs.get('Lambda', default = 0.25 * wave_length)
+         eta = kwargs.get('eta', 1)
+         Lambda = kwargs.get('Lambda', 0.25 * wave_length)
          summation_order = kwargs.get('summation_order', 100)
          if 'norm_k_y' in kwargs.keys():
              norm_k_y = kwargs.get('norm_k_y')
-             phase = k * norm_k_y * Lambda
+             phase_in = k * norm_k_y * Lambda
              norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
          elif 'k_y' in kwargs.keys():
              norm_k_y = kwargs.get('k_y') * np.divide(1,  k)
-             phase = k * norm_k_y * Lambda
+             phase_in = k * norm_k_y * Lambda
              norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
          elif 'phase' in kwargs.keys():
-             norm_k_y = np.divide(1, k) * kwargs.get('phase')
+             phase_in = kwargs.get('phase')
+             norm_k_y = np.divide(1, k) * phase_in
              norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
          elif 'k_z' in kwargs.keys():
              norm_k_z = kwargs.get('k_z') * np.divide(1, k)
              norm_k_y = np.sqrt(norm_k_z ** 2 + 1)
-             phase = np.divide(2 * np.pi, wave_length) * norm_k_y * Lambda
+             phase_in = np.divide(2 * np.pi, wave_length) * norm_k_y * Lambda
          elif 'norm_k_z' in kwargs.keys():
              norm_k_z = kwargs.get('norm_k_z') 
              norm_k_y = np.sqrt(norm_k_z ** 2 + 1)
-             phase = k * norm_k_y * Lambda
+             phase_in = k * norm_k_y * Lambda
          else:
              norm_k_y = 2
-             phase = k * norm_k_y * Lambda
+             phase_in = k * norm_k_y * Lambda
              norm_k_z = np.sqrt(norm_k_y ** 2 - 1)
          
          if approximation:
              f =  single_layer.Approx_func(np.divide(Lambda, wave_length), norm_k_z)
          else:
-             f = single_layer.non_approx_func(Lambda, phase, k, summation_order) 
+             f = single_layer.non_approx_func(Lambda, np.array([phase_in]), k, summation_order) 
         
          if 'r_eff' in kwargs.keys():
              r_eff = kwargs.get('r_eff') 
              imag_z = np.divide(k * eta, 2 * np.pi) * np.log(np.divide(2 * np.pi * r_eff, Lambda)) - eta * f
-             return 1j * imag_z
+             return - 1j * imag_z
          else:
              return - 1j * eta * f
      
     
      @staticmethod
      def Approx_func(norm_k_z_vec, norm_Lambda_vec):
-         norm_kz = np.array(norm_k_z_vec).reshape(len(norm_k_z_vec), 1)
-         norm_Lambda = np.array(norm_Lambda_vec).reshape(1, len(norm_Lambda_vec))
+         norm_kz = (norm_k_z_vec).reshape(-1, 1)
+         norm_Lambda = np.array(norm_Lambda_vec).reshape(1, -1)
          a_vec = 0.3045097 - 0.01790584 * norm_Lambda + 0.26870063 * norm_Lambda ** 2
          b_vec = - 1.15 * np.log(norm_Lambda) - 0.95
          return a_vec * np.power(norm_kz, b_vec)
     
      @staticmethod
-     def non_approx_func(Lambda, phase,k , summation_order):
-        nums = np.concatenate([np.linspace(-summation_order, 0, endpoint = False),\
-                                     np.linspace(1, summation_order)])
-        
-        sum_element_0 = np.divide(1, np.sqrt(phase ** 2 - (Lambda * k)**2))
-        sum_elements = - np.divide(1, 2 * np.pi * np.abs(nums)) - \
-                np.divide(1, np.sqrt((phase + 2 * np.pi * nums) ** 2 - \
-                                     (Lambda * k) ** 2))
-        imaginary_value = np.divide(k , 2) * (sum_element_0 + np.sum(sum_elements))
-        return imaginary_value
+     def non_approx_func(Lambda_vec, phase_vec, k , summation_order):
+        Lambda = np.array(Lambda_vec).reshape(-1, 1, 1)
+        phase = np.array(phase_vec).reshape(1, -1, 1)
+        num_vec = np.concatenate([np.linspace(- summation_order, 0, endpoint = False),\
+                                  np.linspace(1, summation_order, endpoint = True)])
+        nums = num_vec.reshape(1, 1, -1)
+        alphas = np.divide(2 * np.pi * nums + phase, Lambda)
+        betas = np.conj(np.sqrt(k ** 2 - alphas ** 2 + 0j))
+        alpha_0 = np.divide(phase, Lambda)
+        beta_0 = np.conj(np.sqrt(k ** 2 - alpha_0 ** 2 + 0j))
+        sum_element_0 = np.divide(k, 2 * Lambda * beta_0)
+        sum_elements = np.divide(k, 2 * Lambda * betas) - np.divide(1j * k, 2 * np.pi * np.abs(nums)) 
+                
+        imaginary_value = sum_element_0[:, :, 0] + np.sum(sum_elements, axis = 2)
+        return imaginary_value 
